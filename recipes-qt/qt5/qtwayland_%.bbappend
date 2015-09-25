@@ -1,6 +1,6 @@
 FILESEXTRAPATHS_append := ":${THISDIR}/${PN}"
 
-QT_MODULE_BRANCH = "5.4"
+QT_MODULE_BRANCH = "5.5"
 
 SRC_URI_append = "\
     file://0010-Added-manifest-file-according-to-smack-3-domain-mode.patch \
