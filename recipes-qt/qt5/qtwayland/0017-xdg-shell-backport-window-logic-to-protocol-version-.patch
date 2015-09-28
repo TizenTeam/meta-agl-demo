@@ -1,0 +1,184 @@
+From 1c922e4187e0601b617ed61dd8d63ef4f77a9f51 Mon Sep 17 00:00:00 2001
+From: Manuel Bachmann <manuel.bachmann@iot.bzh>
+Date: Mon, 28 Sep 2015 01:53:44 +0200
+Subject: [PATCH] xdg-shell: backport window logic to protocol version 1.5.0
+
+As the protocol is older, we need a few changes so that
+window resizing/maximization/fullscreening works.
+
+Signed-off-by: Manuel Bachmann <manuel.bachmann@iot.bzh>
+---
+ src/client/qwaylandxdgsurface.cpp | 71 ++++++++++++++++++++-------------------
+ src/client/qwaylandxdgsurface_p.h | 10 ++++--
+ 2 files changed, 44 insertions(+), 37 deletions(-)
+
+diff --git a/src/client/qwaylandxdgsurface.cpp b/src/client/qwaylandxdgsurface.cpp
+index f06d7e3..577acd8 100644
+--- a/src/client/qwaylandxdgsurface.cpp
++++ b/src/client/qwaylandxdgsurface.cpp
+@@ -87,27 +87,37 @@ void QWaylandXdgSurface::move(QWaylandInputDevice *inputDevice)
+ void QWaylandXdgSurface::setMaximized()
+ {
+     if (!m_maximized)
+-        set_maximized();
++        request_change_state(XDG_SURFACE_STATE_MAXIMIZED, true, 0);
+ }
+ 
+ void QWaylandXdgSurface::setFullscreen()
+ {
+     if (!m_fullscreen)
+-        set_fullscreen(Q_NULLPTR);
++        request_change_state(XDG_SURFACE_STATE_FULLSCREEN, true, 0);
+ }
+ 
+ void QWaylandXdgSurface::setNormal()
+ {
+-    if (m_fullscreen || m_maximized  || m_minimized) {
++    int width, height;
++
++    if (m_fullscreen || m_maximized) {
+         if (m_maximized) {
+-            unset_maximized();
++            request_change_state(XDG_SURFACE_STATE_MAXIMIZED, false, 0);
+         }
+         if (m_fullscreen) {
+-            unset_fullscreen();
++            request_change_state(XDG_SURFACE_STATE_FULLSCREEN, false, 0);
+         }
+ 
+-        m_fullscreen = m_maximized = m_minimized = false;
++        m_margins = m_window->frameMargins();
++        width = m_oldsize.width() + m_margins.left() + m_margins.right();
++        height = m_oldsize.height() + m_margins.top() + m_margins.bottom();
++        m_window->configure(0, width, height);
++
++        m_fullscreen = m_maximized = false;
+     }
++
++    if (m_minimized)
++      m_minimized = false;
+ }
+ 
+ void QWaylandXdgSurface::setMinimized()
+@@ -127,7 +137,7 @@ void QWaylandXdgSurface::updateTransientParent(QWindow *parent)
+     if (!parent_wayland_window)
+         return;
+ 
+-    set_parent(parent_wayland_window->object());
++    set_transient_for(parent_wayland_window->object());
+ }
+ 
+ void QWaylandXdgSurface::setTitle(const QString & title)
+@@ -170,32 +180,27 @@ void QWaylandXdgSurface::sendProperty(const QString &name, const QVariant &value
+         m_extendedWindow->updateGenericProperty(name, value);
+ }
+ 
+-void QWaylandXdgSurface::xdg_surface_configure(int32_t width, int32_t height, struct wl_array *states,uint32_t serial)
++void QWaylandXdgSurface::xdg_surface_configure(int32_t width, int32_t height)
++{
++    m_size = QSize(width,height);
++
++    if (width > 0 && height > 0)
++        m_window->configure(0, width, height);
++}
++
++void QWaylandXdgSurface::xdg_surface_change_state(uint32_t state_type, uint32_t value, uint32_t serial)
+ {
+-    uint32_t *state = 0;
+     bool aboutToMaximize = false;
+     bool aboutToFullScreen = false;
+ 
+-    state = (uint32_t*) states->data;
+-
+-    for (uint32_t i=0; i < states->size; i++)
+-    {
+-        switch (*(state+i)) {
++    if (value == true) {
++        switch (state_type) {
+         case XDG_SURFACE_STATE_MAXIMIZED:
+             aboutToMaximize = true;
+             break;
+         case XDG_SURFACE_STATE_FULLSCREEN:
+             aboutToFullScreen = true;
+             break;
+-        case XDG_SURFACE_STATE_RESIZING:
+-            m_margins = m_window->frameMargins();
+-            width -= m_margins.left() + m_margins.right();
+-            height -= m_margins.top() + m_margins.bottom();
+-            m_size = QSize(width,height);
+-            break;
+-        case XDG_SURFACE_STATE_ACTIVATED:
+-            // TODO: here about the missing window activation
+-            break;
+         default:
+             break;
+         }
+@@ -203,31 +208,29 @@ void QWaylandXdgSurface::xdg_surface_configure(int32_t width, int32_t height, st
+ 
+     if (!m_fullscreen && aboutToFullScreen) {
+         m_fullscreen = true;
+-        m_size = m_window->window()->geometry().size();
++        m_oldsize = m_size = m_window->window()->geometry().size();
+         m_window->window()->showFullScreen();
+     } else if (m_fullscreen && !aboutToFullScreen) {
+         m_fullscreen = false;
+         m_window->window()->showNormal();
+     } else if (!m_maximized && aboutToMaximize) {
+         m_maximized = true;
+-        m_size = m_window->window()->geometry().size();
++        m_oldsize = m_size = m_window->window()->geometry().size();
+         m_window->window()->showMaximized();
+     } else if (m_maximized && !aboutToMaximize) {
+         m_maximized = false;
+         m_window->window()->showNormal();
+     }
+ 
+-    if (width == 0 && height == 0) {
+-        width = m_size.width();
+-        height = m_size.height();
+-    }
++    ack_change_state(state_type, value, serial);
++}
+ 
+-    if (width > 0 && height > 0) {
+-        m_margins = m_window->frameMargins();
+-        m_window->configure(0, width + m_margins.left() + m_margins.right(), height + m_margins.top() + m_margins.bottom());
+-    }
++void QWaylandXdgSurface::xdg_surface_activated()
++{
++}
+ 
+-    xdg_surface_ack_configure(object(), serial);
++void QWaylandXdgSurface::xdg_surface_deactivated()
++{
+ }
+ 
+ void QWaylandXdgSurface::xdg_surface_close()
+diff --git a/src/client/qwaylandxdgsurface_p.h b/src/client/qwaylandxdgsurface_p.h
+index 1a53a77..5e08bc3 100644
+--- a/src/client/qwaylandxdgsurface_p.h
++++ b/src/client/qwaylandxdgsurface_p.h
+@@ -96,13 +96,17 @@ private:
+     bool m_minimized;
+     bool m_fullscreen;
+     QSize m_size;
++    QSize m_oldsize;
+     QMargins m_margins;
+     QWaylandExtendedSurface *m_extendedWindow;
+ 
+     void xdg_surface_configure(int32_t width,
+-                               int32_t height,
+-                               struct wl_array *states,
+-                               uint32_t serial) Q_DECL_OVERRIDE;
++                               int32_t height) Q_DECL_OVERRIDE;
++    void xdg_surface_change_state(uint32_t state_type,
++                                  uint32_t value,
++                                  uint32_t serial) Q_DECL_OVERRIDE;
++    void xdg_surface_activated() Q_DECL_OVERRIDE;
++    void xdg_surface_deactivated() Q_DECL_OVERRIDE; 
+     void xdg_surface_close() Q_DECL_OVERRIDE;
+ 
+     friend class QWaylandWindow;
+-- 
+1.8.3.1
+

@@ -1,0 +1,33 @@
+From 17aef5a65d5c94020085eb8eab8fda2b4b5fdcb6 Mon Sep 17 00:00:00 2001
+From: Manuel Bachmann <manuel.bachmann@iot.bzh>
+Date: Mon, 28 Sep 2015 01:44:09 +0200
+Subject: [PATCH] qwaylanddisplay: add support for IVI-Surface-ID proper
+
+Signed-off-by: Manuel Bachmann <manuel.bachmann@iot.bzh>
+---
+ src/client/qwaylanddisplay.cpp | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/client/qwaylanddisplay.cpp b/src/client/qwaylanddisplay.cpp
+index 4adfe48..d7895ad 100644
+--- a/src/client/qwaylanddisplay.cpp
++++ b/src/client/qwaylanddisplay.cpp
+@@ -89,7 +89,14 @@ QWaylandShellSurface *QWaylandDisplay::createShellSurface(QWaylandWindow *window
+         return mWaylandIntegration->shellIntegration()->createShellSurface(window);
+ 
+     if (shellIvi()) {
+-        return new QWaylandIviSurface(shellIvi()->surface_create(IVI_SURFACE_ID + getpid(), window->object()), window);
++        unsigned int id = 0;
++        QVariant value = window->property("IVI-Surface-ID");
++        if (value.isValid()) {
++            id = value.toUInt();
++        } else {
++            id = IVI_SURFACE_ID + getpid();
++        }
++        return new QWaylandIviSurface(shellIvi()->surface_create(id, window->object()), window);
+     } else if (shellXdg()) {
+         return new QWaylandXdgSurface(shellXdg()->get_xdg_surface(window->object()), window);
+     } else if (shell()) {
+-- 
+1.8.3.1
+
