@@ -1,0 +1,13 @@
+--- a/src/client/qwaylanddisplay.cpp	2015-10-14 12:52:57.785545008 +0000
++++ b/src/client/qwaylanddisplay.cpp	2015-10-14 13:00:31.916869128 +0000
+@@ -94,7 +94,9 @@
+         if (value.isValid()) {
+             id = value.toUInt();
+         } else {
+-            id = IVI_SURFACE_ID + getpid();
++            //id = IVI_SURFACE_ID + getpid();
++            // breaks if we have more than 1 window per app, use window ID
++            id = IVI_SURFACE_ID + window->winId();
+         }
+         return new QWaylandIviSurface(shellIvi()->surface_create(id, window->object()), window);
+     } else if (shellXdg()) {

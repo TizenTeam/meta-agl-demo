@@ -11,6 +11,7 @@ SRC_URI_append = "\
     file://disable_xcomposite_egl_qt_wayland_client_buffer_integration.patch \
     file://0001-protocol-update-3rd-party-ivi-application-protocol.patch \
     file://0002-qwaylanddisplay-add-support-for-IVI-Surface-ID-prope.patch \
+    file://IVI-Shell-allow-multiwindow.patch \
     "
 
 DEPENDS_append_koelsch = " libegl gles-user-module"

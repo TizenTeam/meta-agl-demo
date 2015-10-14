@@ -1,0 +1,16 @@
+--- a/examples/webkitwidgets/browser/browsermainwindow.cpp	2015-10-14 12:16:44.707146421 +0000
++++ b/examples/webkitwidgets/browser/browsermainwindow.cpp	2015-10-14 13:32:55.996795235 +0000
+@@ -549,6 +549,13 @@
+ 
+     m_tabWidget->currentLineEdit()->setText(QString::fromUtf8(url.toEncoded()));
+     m_tabWidget->loadUrlInCurrentTab(url);
++
++    // always make fullscreen and mask all possible widgets (menubars, ...)
++    showFullScreen();
++    m_navigationBar->close();
++    m_bookmarksToolbar->close();
++    menuBar()->close();
++    statusBar()->close();
+ }
+ 
+ void BrowserMainWindow::slotDownloadManager()
