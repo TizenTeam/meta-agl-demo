@@ -1,0 +1,11 @@
+--- a/src/core/delegated_frame_node.cpp	2016-01-04 02:56:41.248006505 +0000
++++ b/src/core/delegated_frame_node.cpp	2016-01-04 02:56:51.751166432 +0000
+@@ -264,7 +264,7 @@
+         break;
+     }
+     // If Chromium was able to create a sync, we should have been able to handle its type here too.
+-    Q_ASSERT(!*sync);
++    // Q_ASSERT(!*sync);
+ }
+ 
+ MailboxTexture::MailboxTexture(const gpu::MailboxHolder &mailboxHolder, const QSize textureSize)
