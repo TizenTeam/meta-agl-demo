@@ -23,6 +23,7 @@ BBLAYERS ?= " \
   ##OEROOT##/../meta-openembedded/meta-ruby \
   ##OEROOT##/../meta-qt5 \
   ##OEROOT##/../meta-rust \
+  ##OEROOT##/../meta-oic \
   "
 BBLAYERS_NON_REMOVABLE ?= " \
   ##OEROOT##/meta \
